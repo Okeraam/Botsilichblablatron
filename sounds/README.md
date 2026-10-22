@@ -12,5 +12,6 @@ Add one MP3 file for each command. Keep these filenames so the buttons can find 
 - `greeting.mp3`
 - `jump.mp3`
 - `laser.mp3`
+- `soundtrack.mp3` (background music and the Rhythm Game song)
 
 The robot's greeting also uses your browser's Spanish text-to-speech voice when available.

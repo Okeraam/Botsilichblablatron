@@ -364,6 +364,9 @@
                 <button class="command-button laser-button" data-action="laser" type="button"><span class="button-icon"
                         aria-hidden="true">◎</span><span>Laser</span><span class="button-arrow"
                         aria-hidden="true">↗</span></button>
+                <button class="command-button game-button" id="rhythm-button" type="button"
+                    aria-haspopup="dialog"><span class="button-icon" aria-hidden="true">♫</span><span>Rhythm
+                        Game</span><span class="game-keys" aria-hidden="true">D F J K</span></button>
             </div>
             <p class="gesture-note"><span>2×</span> Double-click commands</p>
         </section>
@@ -373,6 +376,30 @@
             <span>MADE FOR A LITTLE FUN <span class="footer-star">✳</span></span>
         </footer>
     </main>
+
+    <div class="rhythm" id="rhythm" hidden>
+        <div class="rhythm-panel" role="dialog" aria-modal="true" aria-labelledby="rhythm-title">
+            <header class="rhythm-top">
+                <div>
+                    <p class="eyebrow">MINIGAME · 4K</p>
+                    <h2 id="rhythm-title">Rhythm Bay</h2>
+                </div>
+                <div class="rhythm-stats">
+                    <span class="rhythm-lives" id="rhythm-lives" aria-label="Lives"></span>
+                    <span class="rhythm-score" id="rhythm-score">0</span>
+                </div>
+                <button class="rhythm-close" id="rhythm-close" type="button" aria-label="Close game">✕</button>
+            </header>
+            <div class="rhythm-stage" id="rhythm-stage">
+                <canvas id="rhythm-canvas" aria-hidden="true"></canvas>
+                <div class="rhythm-screen" id="rhythm-screen">
+                    <p class="rhythm-screen-title" id="rhythm-screen-title">Loading song…</p>
+                    <p class="rhythm-screen-text" id="rhythm-screen-text"></p>
+                    <button class="rhythm-start" id="rhythm-start" type="button" hidden>Start</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>

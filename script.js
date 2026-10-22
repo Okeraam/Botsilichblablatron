@@ -5,7 +5,7 @@ const bubble = document.querySelector('#speech-bubble');
 const powerStatus = document.querySelector('#power-status');
 const statusLight = document.querySelector('#status-light');
 const stageHud = document.querySelector('#stage-hud');
-const buttons = document.querySelectorAll('.command-button');
+const buttons = document.querySelectorAll('.command-button[data-action]');
 const canvas = document.querySelector('#fx-canvas');
 const ctx = canvas.getContext('2d');
 
@@ -685,4 +685,627 @@ buttons.forEach((button) => {
     } else {
         button.addEventListener('click', () => runAction(action));
     }
+});
+
+/* ---------- Background music ---------- */
+
+const soundtrackSrc = 'sounds/soundtrack.mp3';
+const music = new Audio(soundtrackSrc);
+music.loop = true;
+music.volume = 0.04;
+
+function startMusic() {
+    if (rhythm.open) {
+        return;
+    }
+    music.play().catch(() => {
+        // Browsers block autoplay until the first click or key press.
+    });
+}
+
+function unlockMusic() {
+    window.removeEventListener('pointerdown', unlockMusic);
+    window.removeEventListener('keydown', unlockMusic);
+    startMusic();
+}
+
+window.addEventListener('pointerdown', unlockMusic);
+window.addEventListener('keydown', unlockMusic);
+
+/* ---------- Rhythm game ---------- */
+
+const rhythmKeys = ['d', 'f', 'j', 'k'];
+const laneColors = ['#6fe6ff', '#b8ef72', '#b8ef72', '#6fe6ff'];
+const hitWindows = [
+    { name: 'PERFECT', range: 0.04, points: 300, color: '#ffe48a' },
+    { name: 'GREAT', range: 0.075, points: 200, color: '#b8ef72' },
+    { name: 'GOOD', range: 0.11, points: 100, color: '#6fe6ff' }
+];
+const missWindow = 0.11;
+const approachTime = 0.55; // Seconds a note takes to fall to the hit line.
+const leadIn = 1.6;
+const maxLives = 5;
+const comboForLife = 30;
+// About 5.6 notes per second with frequent chords feels like a 4★ osu!mania map.
+const notesPerSecond = 5.6;
+const minNoteGap = 0.09;
+
+const rhythmButton = document.querySelector('#rhythm-button');
+const rhythmOverlay = document.querySelector('#rhythm');
+const rhythmStage = document.querySelector('#rhythm-stage');
+const rhythmCanvas = document.querySelector('#rhythm-canvas');
+const rctx = rhythmCanvas.getContext('2d');
+const rhythmScreen = document.querySelector('#rhythm-screen');
+const rhythmScreenTitle = document.querySelector('#rhythm-screen-title');
+const rhythmScreenText = document.querySelector('#rhythm-screen-text');
+const rhythmStart = document.querySelector('#rhythm-start');
+const rhythmLives = document.querySelector('#rhythm-lives');
+const rhythmScore = document.querySelector('#rhythm-score');
+
+const rhythm = {
+    open: false,
+    state: 'idle',
+    song: null,
+    audio: null,
+    source: null,
+    player: null,
+    notes: [],
+    next: 0,
+    lives: maxLives,
+    combo: 0,
+    maxCombo: 0,
+    score: 0,
+    judged: 0,
+    popup: null,
+    lanesDown: [false, false, false, false],
+    laneFlash: [0, 0, 0, 0],
+    pointers: new Map(),
+    width: 0,
+    height: 0
+};
+
+let songPromise;
+
+function mulberry32(seed) {
+    return () => {
+        seed = (seed + 0x6d2b79f5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
+function assignLanes(events, chordCut, tripleCut) {
+    const random = mulberry32(35);
+    const notes = [];
+    let previous = [];
+    let previousTime = -1;
+
+    events.forEach(({ time, strength }) => {
+        const gap = time - previousTime;
+        let size = 1;
+        if (strength >= tripleCut && gap >= 0.3) {
+            size = 3;
+        } else if (strength >= chordCut && gap >= 0.15) {
+            size = 2;
+        }
+        // Keep quick notes off the key that was just pressed so there are no fast jacks.
+        const pool = [0, 1, 2, 3].filter((lane) => gap >= 0.2 || !previous.includes(lane));
+        for (let i = pool.length - 1; i > 0; i -= 1) {
+            const j = Math.floor(random() * (i + 1));
+            [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+        const lanes = pool.slice(0, size);
+        lanes.forEach((lane) => notes.push({ time, lane }));
+        previous = lanes;
+        previousTime = time;
+    });
+    return notes;
+}
+
+// Finds the beats of the song (kicks, snares, hats) and turns the strongest ones into notes.
+function buildChart(buffer) {
+    const rate = buffer.sampleRate;
+    const hop = Math.round(rate * 0.005);
+    const frameTime = hop / rate;
+    const channels = Array.from({ length: buffer.numberOfChannels }, (_, i) => buffer.getChannelData(i));
+    const frames = Math.floor(buffer.length / hop);
+    const energy = new Float32Array(frames * 3);
+    const loudness = new Float32Array(frames);
+    const lowCoef = Math.exp(-2 * Math.PI * 160 / rate);
+    const midCoef = Math.exp(-2 * Math.PI * 2500 / rate);
+    let low = 0;
+    let mid = 0;
+
+    for (let f = 0; f < frames; f += 1) {
+        let eLow = 0;
+        let eMid = 0;
+        let eHigh = 0;
+        for (let i = f * hop, end = i + hop; i < end; i += 1) {
+            let x = 0;
+            for (const data of channels) {
+                x += data[i];
+            }
+            x /= channels.length;
+            low = low * lowCoef + x * (1 - lowCoef);
+            mid = mid * midCoef + x * (1 - midCoef);
+            eLow += low * low;
+            eMid += (mid - low) * (mid - low);
+            eHigh += (x - mid) * (x - mid);
+        }
+        energy[f * 3] = eLow;
+        energy[f * 3 + 1] = eMid;
+        energy[f * 3 + 2] = eHigh;
+        loudness[f] = eLow + eMid + eHigh;
+    }
+
+    const quiet = [...loudness].sort((a, b) => a - b)[Math.floor(frames / 2)] * 0.02;
+    const eps = hop * 1e-5;
+    const weights = [1.2, 1, 0.8];
+    const flux = new Float32Array(frames);
+    let activeFrames = 0;
+    for (let f = 2; f < frames; f += 1) {
+        if (loudness[f] < quiet) {
+            continue;
+        }
+        activeFrames += 1;
+        for (let b = 0; b < 3; b += 1) {
+            const rise = Math.log(energy[f * 3 + b] + eps) - Math.log(energy[(f - 2) * 3 + b] + eps);
+            flux[f] += Math.max(0, rise) * weights[b];
+        }
+    }
+
+    const sums = new Float64Array(frames + 1);
+    flux.forEach((value, f) => {
+        sums[f + 1] = sums[f] + value;
+    });
+    const candidates = [];
+    const span = 100;
+    const peakSpan = 10;
+    for (let f = peakSpan; f < frames - peakSpan; f += 1) {
+        const from = Math.max(0, f - span);
+        const to = Math.min(frames, f + span);
+        const mean = (sums[to] - sums[from]) / (to - from);
+        if (flux[f] <= mean * 1.5 + 0.05) {
+            continue;
+        }
+        let isPeak = true;
+        for (let k = f - peakSpan; k <= f + peakSpan && isPeak; k += 1) {
+            isPeak = flux[k] < flux[f] || (flux[k] === flux[f] && k >= f);
+        }
+        if (isPeak) {
+            candidates.push({ frame: f, strength: flux[f] - mean });
+        }
+    }
+
+    candidates.sort((a, b) => b.strength - a.strength);
+    const target = Math.round(activeFrames * frameTime * notesPerSecond);
+    const gapFrames = Math.round(minNoteGap / frameTime);
+    const taken = new Uint8Array(frames);
+    const chosen = [];
+    for (const candidate of candidates) {
+        if (chosen.length >= target) {
+            break;
+        }
+        if (taken[candidate.frame]) {
+            continue;
+        }
+        chosen.push(candidate);
+        for (let k = Math.max(0, candidate.frame - gapFrames + 1); k < Math.min(frames, candidate.frame + gapFrames); k += 1) {
+            taken[k] = 1;
+        }
+    }
+
+    const chordCut = chosen[Math.floor(chosen.length * 0.25)]?.strength ?? Infinity;
+    const tripleCut = chosen[Math.floor(chosen.length * 0.04)]?.strength ?? Infinity;
+    chosen.sort((a, b) => a.frame - b.frame);
+    const events = chosen.map(({ frame, strength }) => ({ time: frame * frameTime, strength }));
+    return assignLanes(events, chordCut, tripleCut);
+}
+
+function buildFallbackChart(duration) {
+    const step = 60 / 160 / 2;
+    const events = [];
+    for (let i = 0, time = 1; time < duration - 2; i += 1, time += step) {
+        events.push({ time, strength: i % 8 === 0 ? 2 : i % 4 === 0 ? 1 : 0 });
+    }
+    return assignLanes(events, 1, 2);
+}
+
+function mediaDuration() {
+    if (Number.isFinite(music.duration)) {
+        return Promise.resolve(music.duration);
+    }
+    return new Promise((resolve) => {
+        music.addEventListener('loadedmetadata', () => resolve(music.duration), { once: true });
+        window.setTimeout(() => resolve(180), 4000);
+    });
+}
+
+function loadSong() {
+    songPromise ??= (async () => {
+        try {
+            rhythm.audio ??= new AudioContext();
+            const response = await fetch(soundtrackSrc);
+            const buffer = await rhythm.audio.decodeAudioData(await response.arrayBuffer());
+            return { buffer, notes: buildChart(buffer), synced: true, duration: buffer.duration };
+        } catch {
+            // Pages opened straight from disk (file://) cannot read audio data, so use a fixed-tempo chart.
+            const duration = await mediaDuration();
+            return { notes: buildFallbackChart(duration), synced: false, duration };
+        }
+    })();
+    return songPromise;
+}
+
+function songTime() {
+    if (rhythm.song.synced) {
+        return rhythm.audio.currentTime - rhythm.startAt - (rhythm.audio.outputLatency || 0);
+    }
+    return (performance.now() - rhythm.startPerf) / 1000;
+}
+
+function updateRhythmHud() {
+    rhythmLives.textContent = '♥'.repeat(rhythm.lives) + '♡'.repeat(maxLives - rhythm.lives);
+    rhythmLives.setAttribute('aria-label', `${rhythm.lives} lives`);
+    rhythmScore.textContent = rhythm.score.toLocaleString('en-US');
+}
+
+function showRhythmScreen(title, text, buttonLabel) {
+    rhythmScreen.hidden = false;
+    rhythmScreenTitle.textContent = title;
+    rhythmScreenText.textContent = text;
+    rhythmStart.hidden = !buttonLabel;
+    if (buttonLabel) {
+        rhythmStart.textContent = buttonLabel;
+        rhythmStart.focus();
+    }
+}
+
+function showRhythmReady() {
+    rhythm.state = 'ready';
+    const sync = rhythm.song.synced
+        ? ''
+        : ' (Open the site from a local server so the notes follow the music.)';
+    showRhythmScreen(
+        'Ready?',
+        `Hit the notes with D F J K when they reach the line. 5 misses and you lose, every ${comboForLife} combo gives you a life back.${sync}`,
+        'Start'
+    );
+}
+
+function resizeRhythm() {
+    const ratio = window.devicePixelRatio || 1;
+    rhythm.width = rhythmStage.clientWidth;
+    rhythm.height = rhythmStage.clientHeight;
+    rhythmCanvas.width = Math.round(rhythm.width * ratio);
+    rhythmCanvas.height = Math.round(rhythm.height * ratio);
+    rctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    if (rhythm.state !== 'playing') {
+        drawRhythm(-leadIn);
+    }
+}
+
+function openRhythm() {
+    rhythm.open = true;
+    music.pause();
+    stopSound();
+    rhythmOverlay.hidden = false;
+    document.body.classList.add('rhythm-open');
+    rhythm.notes = [];
+    rhythm.state = 'loading';
+    rhythm.lives = maxLives;
+    rhythm.score = 0;
+    updateRhythmHud();
+    resizeRhythm();
+    showRhythmScreen('Loading song…', 'Mapping the beats of the soundtrack.');
+    loadSong().then((song) => {
+        rhythm.song = song;
+        if (rhythm.open && rhythm.state === 'loading') {
+            showRhythmReady();
+        }
+    });
+}
+
+function stopSong() {
+    window.cancelAnimationFrame(rhythm.frame);
+    window.clearTimeout(rhythm.playTimer);
+    try {
+        rhythm.source?.stop();
+    } catch {
+        // The source may already be stopped.
+    }
+    rhythm.source = null;
+    rhythm.player?.pause();
+}
+
+function closeRhythm() {
+    stopSong();
+    rhythm.open = false;
+    rhythm.state = 'idle';
+    rhythmOverlay.hidden = true;
+    document.body.classList.remove('rhythm-open');
+    startMusic();
+    rhythmButton.focus();
+}
+
+function startRhythm() {
+    const song = rhythm.song;
+    stopSong();
+    rhythm.notes = song.notes.map((note) => ({ ...note, judged: false }));
+    rhythm.next = 0;
+    rhythm.lives = maxLives;
+    rhythm.combo = 0;
+    rhythm.maxCombo = 0;
+    rhythm.score = 0;
+    rhythm.judged = 0;
+    rhythm.popup = null;
+    rhythm.end = Math.min(song.duration, (rhythm.notes.at(-1)?.time ?? 0) + 2);
+    rhythm.state = 'playing';
+    rhythmScreen.hidden = true;
+    updateRhythmHud();
+
+    if (song.synced) {
+        const ac = rhythm.audio;
+        ac.resume();
+        const gain = ac.createGain();
+        gain.gain.value = 0.7;
+        rhythm.source = ac.createBufferSource();
+        rhythm.source.buffer = song.buffer;
+        rhythm.source.connect(gain).connect(ac.destination);
+        rhythm.startAt = ac.currentTime + leadIn;
+        rhythm.source.start(rhythm.startAt);
+    } else {
+        rhythm.player ??= new Audio(soundtrackSrc);
+        rhythm.player.volume = 0.7;
+        rhythm.player.currentTime = 0;
+        rhythm.startPerf = performance.now() + leadIn * 1000;
+        rhythm.playTimer = window.setTimeout(() => rhythm.player.play().catch(() => {}), leadIn * 1000);
+    }
+
+    rhythm.frame = window.requestAnimationFrame(rhythmLoop);
+}
+
+function finishRhythm(cleared) {
+    stopSong();
+    rhythm.state = 'over';
+    const accuracy = rhythm.judged ? (rhythm.score / (rhythm.judged * 300)) * 100 : 0;
+    showRhythmScreen(
+        cleared ? 'Song cleared!' : 'Game over',
+        `Score ${rhythm.score.toLocaleString('en-US')} · Accuracy ${accuracy.toFixed(1)}% · Max combo ${rhythm.maxCombo}`,
+        'Play again'
+    );
+    drawRhythm(songTime());
+}
+
+function judge(note, grade) {
+    note.judged = true;
+    rhythm.judged += 1;
+    const now = performance.now();
+
+    if (!grade) {
+        rhythm.combo = 0;
+        rhythm.lives -= 1;
+        rhythm.popup = { text: 'MISS', color: '#f2785d', at: now };
+        updateRhythmHud();
+        if (rhythm.lives <= 0) {
+            finishRhythm(false);
+        }
+        return;
+    }
+
+    rhythm.score += grade.points;
+    rhythm.combo += 1;
+    rhythm.maxCombo = Math.max(rhythm.maxCombo, rhythm.combo);
+    rhythm.laneFlash[note.lane] = now;
+    rhythm.popup = { text: grade.name, color: grade.color, at: now };
+    if (rhythm.combo % comboForLife === 0 && rhythm.lives < maxLives) {
+        rhythm.lives += 1;
+        rhythm.popup = { text: '+1 LIFE', color: '#ff8fa3', at: now };
+    }
+    updateRhythmHud();
+}
+
+function pressLane(lane) {
+    rhythm.lanesDown[lane] = true;
+    if (rhythm.state !== 'playing') {
+        return;
+    }
+    const now = songTime();
+    for (let i = rhythm.next; i < rhythm.notes.length; i += 1) {
+        const note = rhythm.notes[i];
+        if (note.time - now > missWindow) {
+            return;
+        }
+        if (!note.judged && note.lane === lane) {
+            const offset = Math.abs(note.time - now);
+            judge(note, hitWindows.find((window) => offset <= window.range));
+            return;
+        }
+    }
+}
+
+function releaseLane(lane) {
+    rhythm.lanesDown[lane] = false;
+}
+
+function rhythmLoop() {
+    const now = songTime();
+    const { notes } = rhythm;
+
+    for (let i = rhythm.next; i < notes.length && notes[i].time < now - missWindow; i += 1) {
+        if (!notes[i].judged) {
+            judge(notes[i], null);
+            if (rhythm.state !== 'playing') {
+                return;
+            }
+        }
+    }
+    while (rhythm.next < notes.length && notes[rhythm.next].judged) {
+        rhythm.next += 1;
+    }
+
+    if (now > rhythm.end) {
+        finishRhythm(true);
+        return;
+    }
+
+    drawRhythm(now);
+    rhythm.frame = window.requestAnimationFrame(rhythmLoop);
+}
+
+function drawRhythm(now) {
+    const { width, height } = rhythm;
+    const laneWidth = width / 4;
+    const hitY = height - 92;
+    const speed = hitY / approachTime;
+    const clock = performance.now();
+
+    rctx.clearRect(0, 0, width, height);
+    rctx.fillStyle = '#0d1417';
+    rctx.fillRect(0, 0, width, height);
+
+    for (let lane = 0; lane < 4; lane += 1) {
+        const x = lane * laneWidth;
+        rctx.fillStyle = lane % 2 ? '#0f181b' : '#111c20';
+        rctx.fillRect(x, 0, laneWidth, height);
+        if (rhythm.lanesDown[lane]) {
+            const glow = rctx.createLinearGradient(0, hitY, 0, hitY - 260);
+            glow.addColorStop(0, `${laneColors[lane]}40`);
+            glow.addColorStop(1, `${laneColors[lane]}00`);
+            rctx.fillStyle = glow;
+            rctx.fillRect(x, hitY - 260, laneWidth, 260);
+        }
+        rctx.fillStyle = '#1f2c33';
+        rctx.fillRect(x, 0, 1, height);
+    }
+
+    rctx.fillStyle = 'rgba(232, 240, 234, 0.55)';
+    rctx.fillRect(0, hitY - 1, width, 2);
+
+    rctx.textAlign = 'center';
+    rctx.textBaseline = 'middle';
+    for (let lane = 0; lane < 4; lane += 1) {
+        const cx = lane * laneWidth + laneWidth / 2;
+        const color = laneColors[lane];
+        const flash = Math.max(0, 1 - (clock - rhythm.laneFlash[lane]) / 160);
+
+        rctx.lineWidth = 2;
+        rctx.strokeStyle = color;
+        rctx.fillStyle = rhythm.lanesDown[lane] ? color : '#0d1417';
+        rctx.globalAlpha = rhythm.lanesDown[lane] ? 0.9 : 0.6;
+        rctx.beginPath();
+        rctx.roundRect(cx - laneWidth / 2 + 8, hitY - 9, laneWidth - 16, 18, 5);
+        rctx.fill();
+        rctx.stroke();
+        rctx.globalAlpha = 1;
+
+        if (flash > 0) {
+            const burst = rctx.createRadialGradient(cx, hitY, 0, cx, hitY, laneWidth * 0.7);
+            burst.addColorStop(0, `rgba(255, 255, 255, ${0.8 * flash})`);
+            burst.addColorStop(0.4, `${color}${Math.round(flash * 120).toString(16).padStart(2, '0')}`);
+            burst.addColorStop(1, `${color}00`);
+            rctx.fillStyle = burst;
+            rctx.fillRect(cx - laneWidth, hitY - laneWidth, laneWidth * 2, laneWidth * 2);
+        }
+
+        rctx.fillStyle = rhythm.lanesDown[lane] ? '#e8f0ea' : '#738078';
+        rctx.font = '500 15px "DM Mono", Consolas, monospace';
+        rctx.fillText(rhythmKeys[lane].toUpperCase(), cx, hitY + 46);
+    }
+
+    for (let i = rhythm.next; i < rhythm.notes.length; i += 1) {
+        const note = rhythm.notes[i];
+        const y = hitY - (note.time - now) * speed;
+        if (y < -20) {
+            break;
+        }
+        if (note.judged) {
+            continue;
+        }
+        const x = note.lane * laneWidth;
+        rctx.shadowColor = laneColors[note.lane];
+        rctx.shadowBlur = 12;
+        rctx.fillStyle = laneColors[note.lane];
+        rctx.beginPath();
+        rctx.roundRect(x + 6, y - 9, laneWidth - 12, 18, 5);
+        rctx.fill();
+        rctx.shadowBlur = 0;
+        rctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+        rctx.fillRect(x + 12, y - 6, laneWidth - 24, 3);
+    }
+
+    if (rhythm.state !== 'playing') {
+        return;
+    }
+
+    if (now < 0) {
+        rctx.fillStyle = '#e8f0ea';
+        rctx.font = '700 22px "Space Grotesk", sans-serif';
+        rctx.fillText(now < -0.6 ? 'GET READY' : 'GO!', width / 2, height * 0.38);
+    }
+
+    if (rhythm.combo >= 2) {
+        rctx.fillStyle = 'rgba(232, 240, 234, 0.9)';
+        rctx.font = '700 40px "Space Grotesk", sans-serif';
+        rctx.fillText(rhythm.combo, width / 2, height * 0.32);
+    }
+
+    if (rhythm.popup) {
+        const age = (clock - rhythm.popup.at) / 450;
+        if (age < 1) {
+            rctx.globalAlpha = 1 - age;
+            rctx.fillStyle = rhythm.popup.color;
+            rctx.font = '600 17px "DM Mono", Consolas, monospace';
+            rctx.fillText(rhythm.popup.text, width / 2, height * 0.32 + 38 - age * 8);
+            rctx.globalAlpha = 1;
+        }
+    }
+}
+
+rhythmButton.addEventListener('click', openRhythm);
+document.querySelector('#rhythm-close').addEventListener('click', closeRhythm);
+rhythmStart.addEventListener('click', () => {
+    rhythmStart.blur();
+    startRhythm();
+});
+new ResizeObserver(() => rhythm.open && resizeRhythm()).observe(rhythmStage);
+
+window.addEventListener('keydown', (event) => {
+    if (!rhythm.open) {
+        return;
+    }
+    if (event.key === 'Escape') {
+        closeRhythm();
+        return;
+    }
+    const lane = rhythmKeys.indexOf(event.key.toLowerCase());
+    if (lane >= 0) {
+        event.preventDefault();
+        if (!event.repeat) {
+            pressLane(lane);
+        }
+    }
+});
+
+window.addEventListener('keyup', (event) => {
+    const lane = rhythmKeys.indexOf(event.key.toLowerCase());
+    if (lane >= 0) {
+        releaseLane(lane);
+    }
+});
+
+rhythmCanvas.addEventListener('pointerdown', (event) => {
+    const lane = Math.min(3, Math.floor(event.offsetX / (rhythm.width / 4)));
+    rhythm.pointers.set(event.pointerId, lane);
+    pressLane(lane);
+});
+
+['pointerup', 'pointercancel', 'pointerleave'].forEach((eventName) => {
+    rhythmCanvas.addEventListener(eventName, (event) => {
+        if (rhythm.pointers.has(event.pointerId)) {
+            releaseLane(rhythm.pointers.get(event.pointerId));
+            rhythm.pointers.delete(event.pointerId);
+        }
+    });
 });
