@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101b20">
+    <title>Botsilichpsteindiddykirktron | Command Center</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="script.js" defer></script>
+</head>
+
+<body>
+    <main class="console">
+        <header class="topbar">
+            <a class="wordmark" href="#" aria-label="Robo Buddy home">
+                <span class="wordmark-icon" aria-hidden="true">R</span>
+                <span>ROBO BUDDY<span class="wordmark-period">.</span></span>
+            </a>
+            <div class="system-readout" aria-live="polite">
+                <span class="status-light" id="status-light"></span>
+                <span id="power-status">SYSTEM ONLINE</span>
+            </div>
+        </header>
+
+        <section class="play-area" aria-label="Robot action stage">
+            <div class="stage-heading">
+                <p class="eyebrow">YOUR VERY OWN ROBOT</p>
+                <h1>Meet <span>Botsilichpsteindiddykirktron</span></h1>
+            </div>
+
+            <div class="robot-stage" id="robot-stage">
+                <canvas class="fx-canvas" id="fx-canvas" aria-hidden="true"></canvas>
+                <div class="stage-flash" aria-hidden="true"></div>
+                <div class="speech-bubble" id="speech-bubble" aria-live="polite"></div>
+                <div class="blast-label" id="blast-label" aria-hidden="true">KABOOM!</div>
+                <div class="robot-shadow" aria-hidden="true"></div>
+                <div class="robot" id="robot" role="img"
+                    aria-label="Botsilichpsteindiddykirktron, a serious, slightly rusty robot">
+                    <svg viewBox="0 0 220 300" aria-hidden="true">
+                        <defs>
+                            <linearGradient id="g-cyl" x1="0" x2="1">
+                                <stop offset="0" stop-color="#3a4247" />
+                                <stop offset=".22" stop-color="#8f999e" />
+                                <stop offset=".42" stop-color="#d4d9db" />
+                                <stop offset=".68" stop-color="#77828a" />
+                                <stop offset="1" stop-color="#2f363b" />
+                            </linearGradient>
+                            <linearGradient id="g-cyl-dark" x1="0" x2="1">
+                                <stop offset="0" stop-color="#1b2023" />
+                                <stop offset=".4" stop-color="#58626a" />
+                                <stop offset="1" stop-color="#161b1e" />
+                            </linearGradient>
+                            <linearGradient id="g-ribs" x1="0" y1="0" x2="0" y2="4" gradientUnits="userSpaceOnUse"
+                                spreadMethod="repeat">
+                                <stop offset="0" stop-color="#5d676d" />
+                                <stop offset=".5" stop-color="#262d31" />
+                                <stop offset="1" stop-color="#5d676d" />
+                            </linearGradient>
+                            <radialGradient id="g-head" cx=".36" cy=".22" r=".95">
+                                <stop offset="0" stop-color="#e6eaeb" />
+                                <stop offset=".35" stop-color="#a7b0b4" />
+                                <stop offset=".75" stop-color="#5f696e" />
+                                <stop offset="1" stop-color="#363d42" />
+                            </radialGradient>
+                            <linearGradient id="g-plate" x1="0" y1="0" x2=".9" y2="1">
+                                <stop offset="0" stop-color="#c3cacd" />
+                                <stop offset=".45" stop-color="#8c969b" />
+                                <stop offset="1" stop-color="#454e53" />
+                            </linearGradient>
+                            <radialGradient id="g-joint" cx=".34" cy=".3" r=".75">
+                                <stop offset="0" stop-color="#dfe4e5" />
+                                <stop offset=".5" stop-color="#717b80" />
+                                <stop offset="1" stop-color="#22282b" />
+                            </radialGradient>
+                            <radialGradient id="g-paint" cx=".35" cy=".3" r=".8">
+                                <stop offset="0" stop-color="#d98a52" />
+                                <stop offset=".6" stop-color="#a4561f" />
+                                <stop offset="1" stop-color="#5a2c0e" />
+                            </radialGradient>
+                            <linearGradient id="g-visor" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0" stop-color="#22343b" />
+                                <stop offset=".45" stop-color="#05090b" />
+                                <stop offset="1" stop-color="#121c20" />
+                            </linearGradient>
+                            <radialGradient id="g-rust" cx=".5" cy=".5" r=".5">
+                                <stop offset="0" stop-color="#7a3d17" stop-opacity=".75" />
+                                <stop offset=".6" stop-color="#8e4c22" stop-opacity=".35" />
+                                <stop offset="1" stop-color="#8e4c22" stop-opacity="0" />
+                            </radialGradient>
+                            <radialGradient id="g-core" cx=".5" cy=".5" r=".5">
+                                <stop offset="0" class="glow-stop-hot" />
+                                <stop offset=".45" class="glow-stop" />
+                                <stop offset="1" class="glow-stop" stop-opacity=".15" />
+                            </radialGradient>
+                            <pattern id="p-hazard" width="8" height="8" patternUnits="userSpaceOnUse"
+                                patternTransform="rotate(45)">
+                                <rect width="8" height="8" fill="#1c1f20" />
+                                <rect width="4" height="8" fill="#c9a227" />
+                            </pattern>
+                            <filter id="f-glow" x="-80%" y="-200%" width="260%" height="500%">
+                                <feGaussianBlur stdDeviation="2.6" result="b" />
+                                <feMerge>
+                                    <feMergeNode in="b" />
+                                    <feMergeNode in="b" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                            <filter id="f-grime" x="0" y="0" width="100%" height="100%">
+                                <feTurbulence type="fractalNoise" baseFrequency=".045 .07" numOctaves="4" seed="7"
+                                    result="n" />
+                                <feColorMatrix in="n" type="matrix"
+                                    values="0 0 0 0 .28  0 0 0 0 .22  0 0 0 0 .17  0 0 0 -1.7 .95" result="d" />
+                                <feComposite in="d" in2="SourceGraphic" operator="in" result="m" />
+                                <feBlend in="m" in2="SourceGraphic" mode="multiply" />
+                            </filter>
+                        </defs>
+
+                        <g class="rig" filter="url(#f-grime)">
+                            <!-- Legs -->
+                            <g class="leg leg-left">
+                                <rect x="81" y="224" width="22" height="34" rx="5" fill="url(#g-cyl)" />
+                                <path d="M83 236h18M83 246h18" stroke="#2a3135" stroke-width=".8" />
+                                <rect x="88" y="258" width="8" height="24" fill="url(#g-cyl-dark)" />
+                                <path d="M79 262 L105 262 L103 284 L81 284 Z" fill="url(#g-cyl)" stroke="#1d2326"
+                                    stroke-width=".8" />
+                                <circle cx="92" cy="259" r="8.5" fill="url(#g-joint)" stroke="#1d2326"
+                                    stroke-width=".8" />
+                                <circle cx="92" cy="259" r="2.4" fill="#1d2326" />
+                                <path d="M68 298 L70 287 Q72 282 80 282 L104 282 Q112 282 114 288 L116 298 Z"
+                                    fill="url(#g-plate)" stroke="#1d2326" stroke-width=".8" />
+                                <rect x="68" y="295" width="48" height="4" rx="1" fill="#1a1f22" />
+                                <ellipse cx="86" cy="271" rx="7" ry="5" fill="url(#g-rust)" />
+                            </g>
+                            <g class="leg leg-right">
+                                <rect x="117" y="224" width="22" height="34" rx="5" fill="url(#g-cyl)" />
+                                <path d="M119 236h18M119 246h18" stroke="#2a3135" stroke-width=".8" />
+                                <rect x="124" y="258" width="8" height="24" fill="url(#g-cyl-dark)" />
+                                <path d="M115 262 L141 262 L139 284 L117 284 Z" fill="url(#g-cyl)" stroke="#1d2326"
+                                    stroke-width=".8" />
+                                <circle cx="128" cy="259" r="8.5" fill="url(#g-joint)" stroke="#1d2326"
+                                    stroke-width=".8" />
+                                <circle cx="128" cy="259" r="2.4" fill="#1d2326" />
+                                <path d="M104 298 L106 288 Q108 282 116 282 L140 282 Q148 282 150 287 L152 298 Z"
+                                    fill="url(#g-plate)" stroke="#1d2326" stroke-width=".8" />
+                                <rect x="104" y="295" width="48" height="4" rx="1" fill="#1a1f22" />
+                            </g>
+
+                            <g class="upper">
+                                <!-- Pelvis and waist -->
+                                <path d="M74 214 L146 214 L142 232 Q140 236 134 236 L86 236 Q80 236 78 232 Z"
+                                    fill="url(#g-plate)" stroke="#1d2326" stroke-width=".8" />
+                                <rect x="86" y="198" width="48" height="18" rx="3" fill="url(#g-ribs)" />
+                                <rect x="86" y="198" width="48" height="18" rx="3" fill="url(#g-cyl-dark)"
+                                    opacity=".55" />
+
+                                <!-- Torso -->
+                                <path d="M66 122 L154 122 Q167 124 166 139 L158 188 Q156 200 144 201 L76 201 Q64 200 62 188 L54 139 Q53 124 66 122 Z"
+                                    fill="url(#g-plate)" stroke="#1d2326" stroke-width=".9" />
+                                <path d="M70 128 L150 128 Q159 130 158 140 L153 160 L67 160 L62 140 Q61 130 70 128 Z"
+                                    fill="#ffffff" opacity=".1" />
+                                <path d="M64 162 L156 162" stroke="#262d31" stroke-width="1" />
+                                <path d="M64 163 L156 163" stroke="#d7dcdd" stroke-width=".5" opacity=".4" />
+                                <path d="M110 128 L110 140M110 168 L110 200" stroke="#262d31" stroke-width=".8" />
+                                <g fill="#262d31">
+                                    <rect x="72" y="170" width="20" height="2.4" rx="1.2" />
+                                    <rect x="72" y="175" width="20" height="2.4" rx="1.2" />
+                                    <rect x="72" y="180" width="20" height="2.4" rx="1.2" />
+                                    <rect x="72" y="185" width="20" height="2.4" rx="1.2" />
+                                </g>
+                                <rect x="126" y="168" width="24" height="14" rx="2" fill="#151a1d"
+                                    stroke="#4c565b" stroke-width=".6" />
+                                <g class="status-leds">
+                                    <circle cx="132" cy="175" r="2" />
+                                    <circle cx="138" cy="175" r="2" />
+                                    <circle cx="144" cy="175" r="2" />
+                                </g>
+                                <rect x="92" y="192" width="36" height="6" fill="url(#p-hazard)" opacity=".85" />
+                                <text x="70" y="143" class="stencil">BS-01</text>
+                                <g fill="#262d31">
+                                    <circle cx="68" cy="132" r="1.3" />
+                                    <circle cx="152" cy="132" r="1.3" />
+                                    <circle cx="68" cy="194" r="1.3" />
+                                    <circle cx="152" cy="194" r="1.3" />
+                                </g>
+                                <!-- Power core -->
+                                <circle cx="110" cy="148" r="14" fill="#14191c" stroke="#59646a" stroke-width="2" />
+                                <circle class="core" cx="110" cy="148" r="9" fill="url(#g-core)" filter="url(#f-glow)" />
+                                <path d="M110 134v28M96 148h28" stroke="#14191c" stroke-width="1.3" opacity=".55" />
+                                <ellipse cx="80" cy="190" rx="10" ry="6" fill="url(#g-rust)" />
+                                <ellipse cx="146" cy="140" rx="7" ry="9" fill="url(#g-rust)" />
+                                <path d="M146 147 q1 9 -1 15" stroke="#7a3d17" stroke-width="1.2" opacity=".4"
+                                    fill="none" />
+                                <path d="M88 132 l14 6M124 186 l10 -3M76 150 l7 4" stroke="#eef1f2"
+                                    stroke-width=".5" opacity=".45" />
+
+                                <!-- Neck -->
+                                <rect x="98" y="106" width="24" height="18" fill="url(#g-ribs)" />
+                                <rect x="98" y="106" width="24" height="18" fill="url(#g-cyl-dark)" opacity=".5" />
+                                <rect x="92" y="108" width="4" height="16" rx="2" fill="url(#g-cyl)" />
+                                <rect x="124" y="108" width="4" height="16" rx="2" fill="url(#g-cyl)" />
+
+                                <!-- Head -->
+                                <g class="head">
+                                    <g class="head-look">
+                                    <g transform="translate(110 110) scale(.86) translate(-110 -110)">
+                                        <rect x="108" y="10" width="4" height="26" rx="1" fill="url(#g-cyl)" />
+                                        <rect x="104" y="30" width="12" height="7" rx="2" fill="url(#g-cyl-dark)" />
+                                        <circle class="antenna-led" cx="110" cy="9" r="3.4" filter="url(#f-glow)" />
+
+                                        <circle cx="59" cy="72" r="11" fill="url(#g-joint)" stroke="#1d2326"
+                                            stroke-width=".8" />
+                                        <circle cx="59" cy="72" r="5" fill="#2a3135" />
+                                        <circle cx="161" cy="72" r="11" fill="url(#g-joint)" stroke="#1d2326"
+                                            stroke-width=".8" />
+                                        <circle cx="161" cy="72" r="5" fill="#2a3135" />
+
+                                        <path d="M71 40 Q110 27 149 40 Q161 45 160 59 L158 92 Q156 107 141 109 L79 109 Q64 107 62 92 L60 59 Q59 45 71 40 Z"
+                                            fill="url(#g-head)" stroke="#1d2326" stroke-width=".9" />
+                                        <path d="M104 32 Q110 30.5 116 32 L115 56 L105 56 Z" fill="url(#g-cyl-dark)"
+                                            opacity=".85" />
+                                        <path d="M72 44 Q76 41 82 40 L83 43 Q78 44 74 47 Z" fill="#b5632b"
+                                            opacity=".55" />
+                                        <path d="M64 92 Q66 104 79 105 L141 105 Q154 104 156 92" fill="none"
+                                            stroke="#262d31" stroke-width=".8" />
+
+                                        <path d="M69 58 Q110 49 151 58 L148 82 Q110 90 72 82 Z" fill="url(#g-visor)"
+                                            stroke="#3b464c" stroke-width="1.2" />
+                                        <g class="eyes">
+                                            <rect class="eye eye-left" x="83" y="65" width="19" height="7" rx="3.5"
+                                                filter="url(#f-glow)" />
+                                            <rect class="eye eye-right" x="118" y="65" width="19" height="7" rx="3.5"
+                                                filter="url(#f-glow)" />
+                                        </g>
+                                        <path d="M74 60 Q110 52 146 60 L145 63 Q110 56 75 64 Z" fill="#ffffff"
+                                            opacity=".16" />
+
+                                        <rect x="94" y="89" width="32" height="11" rx="2" fill="#11171a" />
+                                        <g class="mouth">
+                                            <rect x="97" y="91.5" width="3" height="6" rx="1" />
+                                            <rect x="102.5" y="91.5" width="3" height="6" rx="1" />
+                                            <rect x="108" y="91.5" width="3" height="6" rx="1" />
+                                            <rect x="113.5" y="91.5" width="3" height="6" rx="1" />
+                                            <rect x="119" y="91.5" width="3" height="6" rx="1" />
+                                        </g>
+                                        <g fill="#2a3135">
+                                            <circle cx="70" cy="48" r="1.4" />
+                                            <circle cx="150" cy="48" r="1.4" />
+                                            <circle cx="68" cy="97" r="1.4" />
+                                            <circle cx="152" cy="97" r="1.4" />
+                                        </g>
+                                        <ellipse cx="148" cy="95" rx="6" ry="5" fill="url(#g-rust)" />
+                                    </g>
+                                    </g>
+                                </g>
+
+                                <!-- Arms -->
+                                <g class="arm arm-left">
+                                    <rect x="41" y="140" width="22" height="42" rx="7" fill="url(#g-cyl)"
+                                        stroke="#1d2326" stroke-width=".8" />
+                                    <path d="M42 160h20" stroke="#262d31" stroke-width=".8" />
+                                    <g class="forearm">
+                                        <rect x="40" y="186" width="24" height="38" rx="8" fill="url(#g-cyl)"
+                                            stroke="#1d2326" stroke-width=".8" />
+                                        <rect x="40" y="208" width="24" height="5" fill="#262d31" opacity=".8" />
+                                        <path d="M44 224 L60 224 L58 232 L46 232 Z" fill="url(#g-cyl-dark)" />
+                                        <path d="M45 231 L41 244 L45 246 L49 233 Z" fill="url(#g-cyl)"
+                                            stroke="#1d2326" stroke-width=".6" />
+                                        <path d="M59 231 L63 244 L59 246 L55 233 Z" fill="url(#g-cyl)"
+                                            stroke="#1d2326" stroke-width=".6" />
+                                        <ellipse cx="47" cy="198" rx="5" ry="7" fill="url(#g-rust)" />
+                                    </g>
+                                    <circle cx="52" cy="184" r="7.5" fill="url(#g-joint)" stroke="#1d2326"
+                                        stroke-width=".8" />
+                                    <circle cx="52" cy="136" r="13" fill="url(#g-joint)" stroke="#1d2326"
+                                        stroke-width=".9" />
+                                    <path d="M39 133 A13 13 0 0 1 65 133 L64 137 A12 12 0 0 0 40 137 Z"
+                                        fill="#b5632b" opacity=".75" />
+                                    <path d="M42 130 Q52 124 62 130" stroke="#ffffff" stroke-width="1" fill="none"
+                                        opacity=".3" />
+                                </g>
+                                <g class="arm arm-right">
+                                    <rect x="157" y="140" width="22" height="42" rx="7" fill="url(#g-cyl)"
+                                        stroke="#1d2326" stroke-width=".8" />
+                                    <path d="M158 160h20" stroke="#262d31" stroke-width=".8" />
+                                    <g class="forearm">
+                                        <rect x="156" y="186" width="24" height="38" rx="8" fill="url(#g-cyl)"
+                                            stroke="#1d2326" stroke-width=".8" />
+                                        <rect x="156" y="208" width="24" height="5" fill="#262d31" opacity=".8" />
+                                        <g class="blaster">
+                                            <rect x="161" y="222" width="14" height="22" rx="2" fill="url(#g-cyl-dark)"
+                                                stroke="#1d2326" stroke-width=".6" />
+                                            <rect x="163" y="242" width="10" height="9" rx="1" fill="url(#g-cyl)" />
+                                            <circle class="muzzle" cx="168" cy="252" r="2.5" />
+                                        </g>
+                                        <g class="gripper">
+                                            <path d="M160 224 L176 224 L174 232 L162 232 Z" fill="url(#g-cyl-dark)" />
+                                            <path d="M161 231 L157 244 L161 246 L165 233 Z" fill="url(#g-cyl)"
+                                                stroke="#1d2326" stroke-width=".6" />
+                                            <path d="M175 231 L179 244 L175 246 L171 233 Z" fill="url(#g-cyl)"
+                                                stroke="#1d2326" stroke-width=".6" />
+                                        </g>
+                                    </g>
+                                    <circle cx="168" cy="184" r="7.5" fill="url(#g-joint)" stroke="#1d2326"
+                                        stroke-width=".8" />
+                                    <circle cx="168" cy="136" r="13" fill="url(#g-joint)" stroke="#1d2326"
+                                        stroke-width=".9" />
+                                    <path d="M155 133 A13 13 0 0 1 181 133 L180 137 A12 12 0 0 0 156 137 Z"
+                                        fill="#b5632b" opacity=".75" />
+                                    <path d="M158 130 Q168 124 178 130" stroke="#ffffff" stroke-width="1" fill="none"
+                                        opacity=".3" />
+                                    <ellipse cx="173" cy="142" rx="5" ry="4" fill="url(#g-rust)" />
+                                </g>
+                            </g>
+                        </g>
+                    </svg>
+                </div>
+                <div class="floor" aria-hidden="true"></div>
+                <span class="stage-corner corner-tl" aria-hidden="true"></span>
+                <span class="stage-corner corner-br" aria-hidden="true"></span>
+                <span class="stage-hud" id="stage-hud" aria-hidden="true">BAY 01 · CORE 100%</span>
+            </div>
+            <p class="action-caption" id="action-caption" aria-live="polite">Ready when you are.</p>
+        </section>
+
+        <section class="controls" aria-labelledby="controls-title">
+            <div class="controls-heading">
+                <div>
+                    <p class="eyebrow">COMMAND DECK</p>
+                    <h2 id="controls-title">Pick an action</h2>
+                </div>
+                <span class="control-count">10 COMMANDS</span>
+            </div>
+
+            <div class="button-grid">
+                <button class="command-button" data-action="dance" type="button"><span class="button-icon"
+                        aria-hidden="true">♪</span><span>Dance</span><span class="button-arrow"
+                        aria-hidden="true">↗</span></button>
+                <button class="command-button danger-button" data-action="self-destruct" data-gesture="double"
+                    type="button" title="Double-click to self-destruct"><span class="button-icon"
+                        aria-hidden="true">!</span><span>Self-Destruct</span><span
+                        class="gesture-tag">2×</span></button>
+                <button class="command-button" data-action="secret" type="button"><span class="button-icon"
+                        aria-hidden="true">?</span><span>Secret Button</span><span class="button-arrow"
+                        aria-hidden="true">↗</span></button>
+                <button class="command-button" data-action="shoot" type="button"><span class="button-icon"
+                        aria-hidden="true">⌁</span><span>Shoot</span><span class="button-arrow"
+                        aria-hidden="true">↗</span></button>
+                <button class="command-button power-button" data-action="turn-on" type="button"><span
+                        class="button-icon" aria-hidden="true">⏻</span><span>Turn On</span><span class="button-arrow"
+                        aria-hidden="true">↗</span></button>
+                <button class="command-button" data-action="turn-off" data-gesture="double" type="button"
+                    title="Double-click to turn off"><span class="button-icon" aria-hidden="true">◌</span><span>Turn
+                        Off</span><span class="gesture-tag">2×</span></button>
+                <button class="command-button" data-action="flip" type="button"><span class="button-icon"
+                        aria-hidden="true">⤴</span><span>Flip</span><span class="button-arrow"
+                        aria-hidden="true">↗</span></button>
+                <button class="command-button phrase-button" data-action="greeting" type="button"><span
+                        class="button-icon" aria-hidden="true">Aa</span><span>Hola Ilich, ¿Cómo estás?</span><span
+                        class="button-arrow" aria-hidden="true">↗</span></button>
+                <button class="command-button" data-action="jump" type="button"><span class="button-icon"
+                        aria-hidden="true">↑</span><span>Jump</span><span class="button-arrow"
+                        aria-hidden="true">↗</span></button>
+                <button class="command-button laser-button" data-action="laser" type="button"><span class="button-icon"
+                        aria-hidden="true">◎</span><span>Laser</span><span class="button-arrow"
+                        aria-hidden="true">↗</span></button>
+            </div>
+            <p class="gesture-note"><span>2×</span> Double-click commands</p>
+        </section>
+
+        <footer class="footer">
+            <span>BOTSILICHPSTEINDIDDYKIRKTRON</span>
+            <span>MADE FOR A LITTLE FUN <span class="footer-star">✳</span></span>
+        </footer>
+    </main>
+</body>
+
+</html>
